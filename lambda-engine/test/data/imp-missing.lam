@@ -1,0 +1,3 @@
+-- Import of a file that does not exist: loading must fail.
+language pure
+import nope

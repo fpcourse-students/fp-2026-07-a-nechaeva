@@ -1,0 +1,7 @@
+-- Import with an explicit extension; the task must be DONE.
+language pure
+import prelude.lam
+vars x y
+
+task 1 (импорт с расширением)
+expect K x y = x

@@ -1,0 +1,29 @@
+-- In pure lambda calculus digits denote Church numerals, not Int literals.
+language pure
+
+zero := 0
+identity := \value. value
+
+task 1.1 (Int has no primitive inhabitant in pure)
+inhabit Int (2): none
+
+task 1.2 (Bool has no primitive inhabitant in pure)
+inhabit Bool: none
+
+task 1.3 (a type variable stays uninhabited)
+inhabit a: none
+
+task 1.4 (a bound Int-consuming function still needs an argument)
+inhabit (Int -> a) -> a: none
+
+task 1.5 (a bound Bool-consuming function still needs an argument)
+inhabit (Bool -> a) -> a: none
+
+task 1.6 (ordinary closed terms remain valid inhabitants)
+inhabit a -> a: identity
+
+task 1.7 (a Church numeral has its functional type)
+inhabit (a -> a) -> a -> a: zero
+
+task 1.8 (a Church numeral does not have type Int)
+inhabit Int: zero

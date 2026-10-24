@@ -1,0 +1,222 @@
+name: check
+on: [ push ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Everything that has to happen after the repository was created, whoever
+  # created it (the course script or the student via "Use this template"):
+  # the feedback branch at the template state and the pull request main -> feedback.
+  # Idempotent, runs on every push, even the ones marked [no ci].
+  provision:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pusher.name, '[bot]') }}
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      REPO_NAME: ${{ github.event.repository.name }}
+      TEMPLATE: ${{ github.event.repository.template_repository.name }}
+      ACTOR: ${{ github.actor }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Ветка feedback и PR нужны только репозиторию студента, то есть созданному из
+      # шаблона (скриптом курса или кнопкой "Use this template"). Сам шаблон, его
+      # опубликованные копии fp-2026-NN и репозитории материалов несут полную историю
+      # шаблона: их корневой коммит — давний, с другим workflow-файлом, и GitHub не даёт
+      # GITHUB_TOKEN запушить такую ссылку ("refusing to allow a GitHub App to create or
+      # update workflow ... without `workflows` permission"). Раньше на этом падала вся
+      # job, а вместе с ней пропускались тесты.
+      - name: 'Is this a student repository?'
+        id: kind
+        run: |
+          # В payload события push поля template_repository нет, спрашиваем API.
+          # Если API не ответил, считаем репозиторий студенческим: лучше лишняя попытка,
+          # чем студент без ветки feedback.
+          if info=$(gh api "repos/$REPO" --jq '[.is_template, (.template_repository.name // "")] | @tsv'); then
+            is_template=$(printf '%s' "$info" | cut -f1)
+            TEMPLATE=$(printf '%s' "$info" | cut -f2)
+            if [ "$is_template" = "true" ] || [ -z "$TEMPLATE" ]; then
+              echo "Это не репозиторий студента (шаблон или материалы): ветка feedback и PR здесь не нужны."
+              echo "student=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "student=true" >> "$GITHUB_OUTPUT"
+          if [ -n "$TEMPLATE" ] && [ "$REPO_NAME" != "$TEMPLATE-$ACTOR" ]; then
+            echo "::warning::Репозиторий называется '$REPO_NAME', а по правилам курса должен называться '$TEMPLATE-<ваш логин>'."
+          fi
+
+      - name: 'Create the feedback branch'
+        if: steps.kind.outputs.student == 'true'
+        run: |
+          if git ls-remote --exit-code --heads origin feedback > /dev/null; then
+            echo "feedback branch exists"
+            exit 0
+          fi
+          root=$(git rev-list --max-parents=0 HEAD | tail -n 1)
+          # Отказ не валит job: тесты и отчёт важнее. Ветку тогда создаёт преподаватель
+          # (его токену workflow-файлы разрешены), `make audit` в ops показывает, у кого её нет.
+          git push origin "$root:refs/heads/feedback" \
+            || echo "::warning::Не удалось создать ветку feedback от корневого коммита $root (скорее всего, workflow-файл в нём отличается от текущего, а GITHUB_TOKEN такое пушить нельзя). Отчёт в PR не появится, пока ветку не создаст преподаватель."
+
+      - name: 'Open the pull request'
+        if: steps.kind.outputs.student == 'true'
+        run: |
+          if ! git ls-remote --exit-code --heads origin feedback > /dev/null; then
+            echo "no feedback branch, nothing to open the pull request against"
+            exit 0
+          fi
+          open=$(gh pr list --repo "$REPO" --base feedback --head main --state open --json number --jq 'length')
+          if [ "$open" != "0" ]; then
+            echo "pull request exists"
+            exit 0
+          fi
+          root=$(git rev-list --max-parents=0 HEAD | tail -n 1)
+          if [ "$(git rev-parse HEAD)" = "$root" ]; then
+            echo "nothing to compare yet, the pull request will be opened on the next push"
+            exit 0
+          fi
+          gh pr create --repo "$REPO" --base feedback --head main \
+            --title "$REPO_NAME" \
+            --body "Здесь появляются отчёты проверки и ревью. Сдача — пуш в main; закрывать этот PR не нужно." \
+            || echo "::warning::Не удалось открыть PR, попробуем на следующем пуше."
+
+  hlint:
+    runs-on: ubuntu-latest
+    # Подсказки линтера не меняют зачёт: его определяют тесты уровня 1.
+    continue-on-error: true
+    if: ${{ !contains(github.event.pusher.name, '[bot]') && !contains(github.event.head_commit.message, '[no ci]') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 'Setup HLint'
+        uses: haskell-actions/hlint-setup@v2
+
+      - name: 'Run HLint'
+        uses: haskell-actions/hlint-run@v2
+        with:
+          path: '["src/", "test/"]'
+          fail-on: warning
+
+  tests:
+    needs: provision
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pusher.name, '[bot]') && !contains(github.event.head_commit.message, '[no ci]') }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 'Setup GHC and cabal'
+        id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.10.3'
+          cabal-version: '3.14'
+
+      - name: 'Cache dependencies'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cabal/packages
+            ${{ steps.setup.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-ghc-9.10.3-${{ hashFiles('cabal.project.freeze', 'homework.cabal', 'lambda-engine/lambda-engine.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-ghc-9.10.3-
+
+      - name: 'Update package index'
+        run: cabal update
+
+      - name: 'Build'
+        run: cabal build homework-test
+
+      - name: 'Run tests'
+        id: run-tests
+        continue-on-error: true
+        env:
+          HASKELL_TEST_REPORT_JSON: report.json
+        run: cabal test homework-test
+
+      - name: 'Complete report.json'
+        env:
+          HW: ${{ github.event.repository.name }}
+          LOGIN: ${{ github.actor }}
+          SHA: ${{ github.sha }}
+        run: |
+          # The test runner did not even start (build of tests failed, etc.): keep the shape.
+          if [ ! -f report.json ]; then
+            echo '{"tasks":[],"level1_closed":false}' > report.json
+          fi
+          jq --arg hw "$HW" --arg login "$LOGIN" --arg sha "$SHA" \
+            '. + {hw: $hw, login: $login, sha: $sha}' \
+            report.json > report.tmp.json
+          mv report.tmp.json report.json
+          cat report.json
+
+      - name: 'Render report'
+        run: |
+          jq -r '
+            def rep(s; n): [range(n)] | map(s) | join("");
+            def icon: {"DONE": "✅", "PARTIAL": "🟡", "FAILED": "❌", "TODO": "⬜"}[.] // "❔";
+            def progress: if .progress != null then " (\(.progress * 100 | floor)%)" else "" end;
+            (.tasks | group_by(.level // 99) | .[]
+              | { level: .[0].level, done: map(select(.status == "DONE")) | length, total: length }
+              | "- **\(if .level == null then "Вне TASKS" else "Уровень \(.level)" end)**: \(.done) из \(.total) `\(rep("█"; .done))\(rep("░"; .total - .done))`"),
+            "",
+            "| Задача | Уровень | Статус |",
+            "|---|---|---|",
+            (.tasks[] | "| \(.id) | \(.level // "-") | \(.status | icon) \(.status)\(progress) |"),
+            "",
+            (if .level1_closed then "**Уровень 1 закрыт** — домашка сдана." else "**Уровень 1 открыт.**" end)
+          ' report.json > report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo '## Отчёт проверки'
+            echo
+            cat report.md
+            echo
+            echo '<details><summary>report.json</summary>'
+            echo
+            echo '```json'
+            jq . report.json
+            echo '```'
+            echo
+            echo '</details>'
+          } > comment.md
+
+      # На событии push действие само PR не находит, поэтому номер ищем через API.
+      - name: 'Find the pull request'
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          number=$(gh pr list --repo "$GITHUB_REPOSITORY" --head main --base feedback --state open --json number --jq '.[0].number // empty')
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          if [ -z "$number" ]; then echo "pull request not found yet; the report stays in the job summary"; fi
+
+      - name: 'Comment on the pull request'
+        if: steps.pr.outputs.number != ''
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          number: ${{ steps.pr.outputs.number }}
+          header: hw-report
+          path: comment.md
+
+      # Job зелёная, только когда уровень 1 закрыт: код выхода раннера — именно это.
+      - name: 'Propagate test result'
+        if: steps.run-tests.outcome == 'failure'
+        run: |
+          echo 'Level 1 is still open, see the report above.'
+          exit 1

@@ -1,0 +1,30 @@
+-- Prelude for the test files: standard combinators and encodings.
+language pure
+
+I := \x. x
+K := \x y. x
+K' := \x y. y
+S := \x y z. x z (y z)
+B := \f g x. f (g x)
+C := \f x y. f y x
+
+true := \a b. a
+false := \a b. b
+not := \p. p false true
+and := \p q. p q false
+if := \p a b. p a b
+
+pair := \a b p. p a b
+fst := \p. p true
+snd := \p. p false
+
+succ := \n s z. s (n s z)
+plus := \n m s z. n s (m s z)
+mult := \n m s. n (m s)
+isZero := \n. n (K false) true
+
+Y := \f. (\x. f (x x)) (\x. f (x x))
+omega := (\x. x x) (\x. x x)
+
+nil := \c n. n
+cons := \x xs c n. c x (xs c n)

@@ -1,0 +1,47 @@
+-- Wrong answers to typed checks; statuses and messages are asserted in Test.hs.
+language typed
+vars y
+
+I := \x. x
+K := \x y. x
+
+task 3.1 (type)
+t := \x y. x
+type t = a -> a -> a
+type t = a -> a
+type t = none
+type t = ...
+u := \x. x x
+type u = a -> a
+type t = b -> a -> b
+
+task 3.2 (church)
+sk := K I
+church sk = (\x:a y:b. x) (\x:a. x)
+church sk = (\x:(a -> a) y:b. x) (\x:a. x)
+church sk = (\x:(a -> a) y:a. x) (\x:a. x)
+church sk = K I
+church sk = ...
+
+task 3.3 (inhabit)
+i1 := \x. x
+inhabit a -> a -> a: i1
+inhabit a: none
+inhabit a -> a: none
+k1 := \x y. x
+k2 := \a b. a
+inhabit a -> b -> a: k1 k2
+op := \x. x y
+inhabit a -> a: op
+family (a -> a) -> a -> a: \n. I
+inhabit a -> a: ...
+
+task 3.4 (константы)
+expect plus 1 true = 2
+double := \n. plus n n
+type double = Int -> Int -> Int
+
+task 3.5 (ответ не в нормальной форме)
+nf double 21 = plus 21 21
+nf (\n. plus n (mult 2 3)) = \n. plus n (mult 2 3)
+nf double 21 = 42

@@ -1,0 +1,204 @@
+cabal-version: 3.0
+name:          homework
+version:       0.1.0.0
+license:       MIT
+license-file:  LICENSE
+author:        Andrey Stoyan
+maintainer:    andrey.stoyan.csam@gmail.com
+copyright:     2024-2026 Andrey Stoyan
+build-type:    Simple
+description:   Please see the README on GitHub at <https://github.com/fpcourse-materials/haskell-homework-template#readme>
+
+extra-doc-files:
+  README.md
+
+data-files:
+  text/*.txt
+
+-- Вид домашки. Haskell (по умолчанию): задачи в src/Level*.hs, тесты в test/SpecLevel*.hs.
+-- λ-исчисление (+lambda): задачи в src/hw.lam, Haskell-уровней нет — библиотека homework
+-- не собирается, а тесты берут только src/hw.lam. Флаг включается в variant.project,
+-- который шаблон не трогает, поэтому `git pull template main` проходит без конфликтов.
+flag lambda
+  description: Домашка по λ-исчислению (src/hw.lam) без Haskell-уровней
+  default:     False
+  manual:      True
+
+-- Приложение включается только в домашках с содержательным app/Main.hs.
+flag app
+  description: Пример приложения для ручного запуска решений
+  default:     False
+  manual:      True
+
+common shared
+  default-language: Haskell2010
+  build-depends:
+    , base >= 4.7 && < 5
+    , GenericPretty
+    , containers
+    , pretty
+    , random
+  default-extensions:
+    AllowAmbiguousTypes
+    BangPatterns
+    BlockArguments
+    ConstraintKinds
+    DataKinds
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveTraversable
+    DerivingStrategies
+    DerivingVia
+    EmptyCase
+    FlexibleContexts
+    FlexibleInstances
+    FunctionalDependencies
+    GADTs
+    GeneralizedNewtypeDeriving
+    ImplicitParams
+    ImportQualifiedPost
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    NamedFieldPuns
+    OverloadedLabels
+    PatternSynonyms
+    PolyKinds
+    QuantifiedConstraints
+    QuasiQuotes
+    RankNTypes
+    RecordWildCards
+    ScopedTypeVariables
+    StandaloneDeriving
+    StandaloneKindSignatures
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeFamilyDependencies
+    TypeFamilies
+    TypeOperators
+    TypeSynonymInstances
+    ViewPatterns
+  ghc-options:
+    -Wall
+    -- to use hlint pragmas in source files
+    -Wno-unrecognised-pragmas
+    -- imported by teacher should not cause warnings
+    -Wno-unused-imports
+    -- teacher provides some constraints
+    -Wno-redundant-constraints
+    -- can be emitted by macro-generated code
+    -Wno-noncanonical-monoid-instances
+    -Wno-noncanonical-monad-instances
+    -- just very inconvenient with helper functions
+    -Wno-name-shadowing
+
+library
+  import: shared
+  -- Repl стоит первым: cabal repl открывает первый exposed-модуль, а Repl
+  -- импортирует все уровни, так что `make repl` видит их сразу.
+  hs-source-dirs: src meta-utils/repl
+  exposed-modules:
+    Repl
+    Level1
+    Level2
+    Level3
+    Examples
+  build-depends:
+    meta-utils
+  if flag(lambda)
+    buildable: False
+
+executable homework-exe
+  import: shared
+  hs-source-dirs: .
+  main-is: app/Main.hs
+  other-modules: Paths_homework
+  autogen-modules: Paths_homework
+  build-depends:
+    homework
+    , filepath
+  if flag(lambda) || !flag(app)
+    buildable: False
+
+library meta-utils
+  import: shared
+  hs-source-dirs: meta-utils/src
+  exposed-modules:
+    ClassDispatcher
+    MetaUtils
+    PP
+    TodoException
+    TodoMacro
+    TypeCheck
+  build-depends:
+    , template-haskell
+    , HUnit
+
+executable homework-admin
+  import: shared
+  hs-source-dirs: meta-utils/admin
+  main-is: Main.hs
+  other-modules: Admin.Publish
+  build-depends: process
+
+test-suite meta-utils-test
+  import: shared
+  type: exitcode-stdio-1.0
+  hs-source-dirs: meta-utils/test meta-utils/admin
+  main-is: Spec.hs
+  other-modules:
+    TypeCheckSamples
+    TypeCheckSpec
+    Admin.Publish
+    PublishSpec
+  build-depends:
+    , meta-utils
+    , HUnit
+    , process
+    , directory
+    , filepath
+
+-- Проверялка λ-домашек (hw01–hw03) — отдельный пакет lambda-engine/ (см. cabal.project):
+-- библиотека Lambda.*, REPL `cabal run lambda -- load src/hw.lam`, свои тесты.
+test-suite homework-test
+  import: shared
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+  other-modules:
+    Test.Lambda
+    Test.Lazy
+    Test.Manifest
+    Test.Prelude
+    Test.Properties
+    Test.Run
+    Test.Utils
+  -- Spec.hs подключает Haskell-уровни под #ifndef LAMBDA (см. флаг lambda выше).
+  if flag(lambda)
+    cpp-options: -DLAMBDA
+  else
+    other-modules:
+      SpecLevel1
+      SpecLevel2
+      SpecLevel3
+    build-depends:
+      homework
+  ghc-options:
+    -threaded
+    -rtsopts
+    -with-rtsopts=-N
+    -Wno-orphans
+    -Wno-type-defaults
+  build-depends:
+    , meta-utils
+    , lambda-engine
+    , directory
+    , HUnit
+    , QuickCheck
+    , quickcheck-classes-base
+    , generic-arbitrary
+    , generic-random
+    , deepseq

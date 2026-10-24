@@ -1,0 +1,12 @@
+-- Вид домашки: единственный файл, которым репозиторий домашки отличается от шаблона
+-- по сборке. Шаблон его не меняет, поэтому `git pull template main` не конфликтует.
+--
+-- Haskell-домашка: оставить как есть.
+-- λ-домашка: раскомментировать две строки ниже и удалить src/Level*.hs, test/SpecLevel*.hs
+-- и meta-utils/repl/Repl.hs (см. флаг lambda в homework.cabal).
+--
+-- package homework
+--   flags: +lambda
+
+package homework
+  flags: +app

@@ -1,0 +1,140 @@
+-- Every task here must be DONE.
+language pure
+import prelude
+vars x y z f g
+
+task 1.1 (скобки)
+given_1_1a := (\x. (x (x)))
+minimal given_1_1a = \x. x x
+given_1_1b := (\x y . f ((g x) y))
+minimal given_1_1b = \x y. f (g x y)
+given_1_1c := x (\y. (\z. x y z))
+minimal given_1_1c = x (\y. \z. x y z)
+
+task 1.2 (свободные переменные)
+given_1_2a := \x. \x. x y
+free given_1_2a = y
+rename given_1_2a = \x1. \x2. x2 y
+given_1_2b := \z. (\x. x) (x z)
+free given_1_2b = x
+rename given_1_2b = \z. (\x1. x1) (x z)
+
+task 1.3 (цепочки)
+chain c1 to K' =
+  K I
+  ~K~> (\x y. x) I
+  ~b~> \y. I
+  ~I~> \y. \x. x
+chain c2 to B =
+  S (K S) K
+  ~S~> (\x y z. x z (y z)) (K S) K
+  ~b~> (\y z. K S z (y z)) K
+  ~b~> \z. K S z (K z)
+  ~K~> \z. (\x y. x) S z (K z)
+  ~~> \z. S (K z)
+  ~S~> \z. (\x y z'. x z' (y z')) (K z)
+  ~b~> \z. \y z'. K z z' (y z')
+  ~K~> \z. \y z'. (\x y. x) z z' (y z')
+  ~b~> \z. \y z'. (\y. z) z' (y z')
+  ~b~> \z. \y z'. z (y z')
+
+task 1.4 (подстановка)
+chain s1 from ([x |-> S] x (\z x. z x) (\z y x. x) x) =
+  [x |-> S] x (\z x. z x) (\z y x. x) x
+  ~s~> S (\z x. z x) (\z y x. x) S
+  ~S~> (\x y z. x z (y z)) (\z x. z x) (\z y x. x) S
+  ~~> (\z. (\z x. z x) z ((\z y x. x) z)) S
+  ~b~> (\z x. z x) S ((\z y x. x) S)
+  ~b~> (\x. S x) ((\z y x. x) S)
+  ~b~> S ((\z y x. x) S)
+  ~b~> S (\y x. x)
+  ~S~> (\x y z. x z (y z)) (\y x. x)
+  ~b~> \y z. (\y x. x) z (y z)
+  ~b~> \y z. (\x. x) (y z)
+  ~b~> \y z. y z
+
+task 2.1 (программирование)
+or := \p q. p true q
+expect or true false = true
+expect or false false = false
+pow := \a b. b a
+expect pow 2 3 = 8
+expect mult 2 3 = 6
+expect isZero 0 = true
+expect isZero 3 = false
+check mult: closed, normalizing, avoids Y
+
+task 2.2 (символьные проверки)
+triple := \a b c p. p a b c
+fst3 := \t. t (\a b c. a)
+expect fst3 (triple x y z) = x
+expect I x = x
+expect K x y = x
+
+task 3.1 (формы)
+w1 := \x. (\y. y) x
+check w1: closed, whnf, not hnf
+h1 := \x. x ((\y. y) x)
+check h1: closed, hnf, not nf
+check omega: not normalizing
+check Y: not normalizing
+
+task 3.2 (стратегии)
+chain n1 (strategy normal) =
+  (\x. y) ((\z. z) I)
+  ~b~> y
+chain a1 (strategy applicative) =
+  (\x. y) ((\z. z) I)
+  ~b~> (\x. y) I
+  ~b~> y
+
+task 3.3 (рекурсия)
+Fx := Y (\f m. m f)
+expect Fx x = x Fx
+
+task 3.4 (η-шаг в цепочке)
+chain e1 =
+  \f. (\x. f x)
+  ~eta~> \f. f
+chain e2 =
+  \f. f
+  ~eta~> \f x. f x
+
+task 3.5 (аргумент используется много раз)
+-- Решение студента к «делимости на три»: magic использует аргумент шесть раз,
+-- и пошаговая редукция дерева тратит около 6^n шагов. Проходит только с
+-- нормализатором, который вычисляет аргумент один раз (Lambda.Need).
+three := \a b c. pair a (pair b c)
+frst := \t. fst t
+scnd := \t. fst (snd t)
+thrd := \t. snd (snd t)
+nor := \a b. not (or a b)
+magic := \t. three (nor (frst t) (scnd t)) (nor (scnd t) (thrd t)) (nor (frst t) (thrd t))
+divides3 := \n. thrd (n magic (three false false true))
+expect divides3 9 = true
+expect divides3 10 = false
+expect divides3 30 = true
+
+task 3.6 (ответ — нормальная форма)
+-- Значение — терм без редексов после раскрытия имён...
+nf K I S = I
+nf K I S = \x. x
+nf (\x y. x) y = \z. y
+nf and (not false) true = true
+nf plus 2 1 = 3
+nf plus 2 1 = \s z. s (s (s z))
+nf Y (K 5) = 5
+nf I x (I y) = x y
+-- ...или данные, собранные конструкторами из значений. Конструктор узнаётся
+-- по определению, а не по имени.
+inl := \a l r. l a
+inr := \b l r. r b
+nf pair (I 1) (not true) = pair 1 false
+nf cons (mult 2 2) (cons (mult 3 3) nil) = cons 4 (cons 9 nil)
+nf (cons (mult 2 2) nil) = (cons 4 nil)
+nf inr (plus 1 1) = inr 2
+nf C pair (inl 1) (K true x) = pair true (inl 1)
+nf triple x (I y) z = triple x y z
+nf (\a. pair a (I a)) = \a. pair a a
+nf B cons I 1 = cons 1
+check w1: not nf

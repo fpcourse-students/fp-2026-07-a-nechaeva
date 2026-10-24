@@ -1,0 +1,72 @@
+cabal-version: 3.0
+name:          lambda-engine
+version:       0.2.0.0
+synopsis:      Lambda calculus homework checker (untyped and simply typed)
+description:
+  Parse, check, reduce and type lambda programs written in the .lam
+  homework format (see FORMAT.md).
+  Usage: lambda check FILE.lam
+         lambda load FILE.lam
+         lambda load -e ":nf mult 2 3" FILE.lam
+license:       MIT
+author:        Andrey Stoyan
+build-type:    Simple
+data-files:
+  tutorial.lam
+  test/data/*.lam
+
+common warnings
+  ghc-options:        -Wall -Wcompat -Werror=incomplete-patterns
+  default-language:   Haskell2010
+
+library
+  import:             warnings
+  hs-source-dirs:     src
+  exposed-modules:
+    Lambda
+    Lambda.Check
+    Lambda.Color
+    Lambda.Command
+    Lambda.Console
+    Lambda.Decode
+    Lambda.Eval
+    Lambda.Explain
+    Lambda.Need
+    Lambda.Parser
+    Lambda.Pretty
+    Lambda.Subst
+    Lambda.Syntax
+    Lambda.Types
+  build-depends:
+    base >= 4.17 && < 5,
+    containers >= 0.6 && < 0.8,
+    filepath >= 1.4 && < 2,
+    megaparsec >= 9.2 && < 10,
+    transformers >= 0.5 && < 0.7
+  -- Lambda.Console переключает кодовую страницу консоли Windows на UTF-8.
+  -- Win32 поставляется вместе с GHC и уже нужен haskeline, ничего нового не скачивается.
+  if os(windows)
+    build-depends: Win32 >= 2.10 && < 2.15
+
+executable lambda
+  import:             warnings
+  hs-source-dirs:     app
+  main-is:            Main.hs
+  build-depends:
+    base,
+    haskeline >= 0.8 && < 0.9,
+    lambda-engine,
+    transformers >= 0.5 && < 0.7
+
+test-suite lambda-test
+  import:             warnings
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test
+  main-is:            Test.hs
+  default-extensions: ImportQualifiedPost
+  build-depends:
+    base,
+    directory,
+    HUnit,
+    QuickCheck,
+    lambda-engine

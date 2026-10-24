@@ -1,0 +1,6 @@
+packages: . lambda-engine
+with-compiler: ghc-9.10.3
+tests: True
+test-show-details: direct
+-- Вид домашки (Haskell или λ-исчисление) задаётся отдельным файлом, см. комментарий в нём.
+import: variant.project

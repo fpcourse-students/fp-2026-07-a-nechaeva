@@ -1,0 +1,74 @@
+-- Учебный файл к TUTORIAL.md. Откройте его в интерпретаторе:
+--   make repl FILE=lambda-engine/tutorial.lam
+-- и идите по TUTORIAL.md сверху вниз. Файл можно свободно править и ломать.
+language pure
+vars a b c
+
+
+-- ============================================================
+-- Определения с лекции и практики
+-- ============================================================
+
+I  := \x. x
+K  := \x y. x
+K' := \x y. y            -- K* с лекции
+S  := \x y z. x z (y z)
+B  := \f g x. f (g x)
+
+true  := \t e. t
+false := \t e. e
+if    := \b t e. b t e
+not   := \b. if b false true
+
+pair := \x y f. f x y
+fst  := \p. p (\x y. x)
+snd  := \p. p (\x y. y)
+
+suc     := \n s z. s (n s z)
+natElim := \n s z. n s z
+plus    := \n m. natElim n suc m
+
+omega := (\x. x x) (\x. x x)
+
+
+-- ============================================================
+-- Задачи
+-- ============================================================
+
+task 1.1 (уже решена: expect)
+-- twice f a применяет f к a дважды.
+
+twice := \f a. f (f a)
+expect twice suc 0 = 2
+expect twice (twice suc) 1 = 5
+
+
+task 1.2 (уже решена: chain)
+-- Покажите, что S K K =β I, по одному шагу на строку.
+
+chain skk to I =
+  S K K
+  ~S~> (\x y z. x z (y z)) K K
+  ~b~> (\y z. K z (y z)) K
+  ~b~> \z. K z (K z)
+  ~K~> \z. (\x y. x) z (K z)
+  ~b~> \z. (\y. z) (K z)
+  ~b~> \z. z
+
+
+task 1.3 (ваш ход: дырка)
+-- Замените ... на терм.
+
+compose := ...
+expect compose suc suc 0 = 2
+expect compose suc (K 0) 5 = 1
+
+
+task 1.4 (наполовину решена: free, minimal, rename)
+-- Свободные переменные терма given, тот же терм без лишних скобок и
+-- с попарно различными связывателями.
+
+given := (\x. (x (a x)))
+free given = a
+minimal given = ...
+rename given = ...

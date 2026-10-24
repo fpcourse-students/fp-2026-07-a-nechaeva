@@ -1,0 +1,53 @@
+-- Deliberate mistakes; expected statuses are in Test.hs.
+language pure
+import prelude
+vars x y
+
+task 1.1 (дырка)
+t := ...
+expect t x = x
+
+task 1.2 (неверный ответ, PARTIAL)
+or := \p q. p q q
+expect or true false = true
+expect or false false = false
+
+task 1.3 (неверный шаг)
+chain c to K' =
+  K I
+  ~K~> (\x y. x) I
+  ~b~> \y. y
+
+task 1.4 (лишние скобки)
+g := x (y x)
+minimal g = x ((y x))
+
+task 1.5 (шаг без раскрытия)
+chain d =
+  I x
+  ~b~> x
+
+task 1.6 (опечатка)
+h := \p. paier p
+expect h x = x
+
+task 1.7 (неверный тип, typed отдельно)
+check omega: normalizing
+
+task 1.8 (раскрыто не то имя)
+chain e to K' =
+  K I
+  ~S~> (\x y. x) I
+  ~b~> \y. I
+  ~I~> \y. \x. x
+
+task 1.9 (старая стрелка ~d~>)
+chain f to K' =
+  K I
+  ~d~> (\x y. x) I
+  ~b~> \y. I
+  ~I~> \y. \x. x
+
+task 1.10 (имя занято стрелкой)
+s := \x. x
+expect s x = x

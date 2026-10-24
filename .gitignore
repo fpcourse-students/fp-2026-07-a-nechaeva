@@ -1,0 +1,25 @@
+# Сборка
+dist-newstyle/
+cabal.project.local
+cabal.project.local~
+.ghc.environment.*
+*.hi
+*.o
+*.prof
+__pycache__/
+*.pyc
+
+# Артефакты CI
+report.json
+smoke.log
+repl.log
+report.md
+comment.md
+
+# Редакторы и системы
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*~

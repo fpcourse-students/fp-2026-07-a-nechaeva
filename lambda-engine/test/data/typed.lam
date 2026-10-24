@@ -1,0 +1,49 @@
+-- Typed checks; every task must be DONE.
+language typed
+
+I := \x. x
+K := \x y. x
+S := \x y z. x z (y z)
+
+task 1.1 (наиболее общий тип)
+t1 := \x. x
+type t1 = a -> a
+t2 := \x x. x
+type t2 = a -> b -> b
+t3 := \x:(a -> a). x
+type t3 = (a -> a) -> a -> a
+t4 := \x y. x y
+type t4 = (a -> b) -> a -> b
+t5 := \x. x K I x
+type t5 = none
+t6 := \f g x y. f g (g x) (g y)
+type t6 = ((a -> b) -> b -> b -> c) -> (a -> b) -> a -> a -> c
+
+task 1.2 (типизация по Чёрчу)
+ski := S K I
+church ski = (\x:(a -> a -> a) y:(a -> a) z:a. x z (y z)) (\x:a y:a. x) (\x:a. x)
+skk := S K K
+church skk = (\x:(a -> (b -> a) -> a) y:(a -> b -> a) z:a. x z (y z)) (\x:a y:(b -> a). x) (\x:a y:b. x)
+
+task 2.1 (население)
+i1 := \x. x
+inhabit a -> a: i1
+k1 := \x y. x
+k2 := \x y. y
+inhabit a -> a -> a: k1 k2
+inhabit a: none
+church0 := \s z. z
+church1 := \s z. s z
+inhabit (a -> a) -> a -> a: church0 church1
+family (a -> a) -> a -> a: \n. n
+
+task 3.1 (константы)
+double := \n. plus n n
+expect double 21 = 42
+expect if (lt 1 2) 10 20 = 10
+type double = Int -> Int
+type plus = Int -> Int -> Int
+expect mult 6 7 = 42
+nf double 21 = 42
+nf if (lt 1 2) 10 20 = 10
+nf (\n. plus n (mult 2 3)) = \n. plus n 6

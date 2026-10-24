@@ -1,0 +1,3 @@
+-- A typed file importing the pure prelude: loading must fail.
+language typed
+import prelude
