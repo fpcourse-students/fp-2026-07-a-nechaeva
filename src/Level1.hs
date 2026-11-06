@@ -21,21 +21,22 @@ import Data.Map qualified as Map
 import Data.Monoid (Sum (..))
 import Examples qualified as E
 import MetaUtils (todo, todoImpl)
+import Data.List (foldl')
 
 
 -- 1.1. До запуска запишите результаты литералами, без вычислений из условия.
 
 -- foldr (-) 0 [1, 2, 3] :: Integer
 predictedRight :: Integer
-predictedRight = todo "1.1 foldr"
+predictedRight = 2
 
 -- foldl (-) 0 [1, 2, 3] :: Integer
 predictedLeft :: Integer
-predictedLeft = todo "1.1 foldl"
+predictedLeft = -6
 
 -- foldMap (\x -> [x,x]) (Just (2 :: Integer))
 predictedFoldMap :: [Integer]
-predictedFoldMap = todo "1.1 foldMap"
+predictedFoldMap = [2 :: Integer, 2 :: Integer]
 
 
 -- 1.2. Найдите контрпример к E.brokenIncome в src/Examples.hs.
@@ -43,7 +44,7 @@ predictedFoldMap = todo "1.1 foldMap"
 -- «заработано минус сумма всех расходов». Расходы и заработок неотрицательны.
 
 incomeCounterexample :: (Integer, [Integer])
-incomeCounterexample = todo "1.2"
+incomeCounterexample = (2, [1])
 
 
 -- 1.3. Завершите поиск элемента через foldr.
@@ -52,7 +53,7 @@ incomeCounterexample = todo "1.2"
 -- Для бесконечного списка без элемента завершение не требуется.
 
 elem' :: Eq a => a -> [a] -> Bool
-elem' x = foldr (\y rest -> todo "1.3 шаг") False
+elem' x = foldr (\y rest -> if x == y then True else rest) False
 
 
 -- 1.4. Прочитайте E.sizeViaFoldMap. Через foldMap и Sum подсчитайте
@@ -62,7 +63,7 @@ countMatching :: (Foldable t, Num n) => (a -> Bool) -> t a -> n
 countMatching p = getSum . foldMap contribution
   where
     contribution x
-      | p x = todo "1.4 вклад подходящего элемента"
+      | p x = Sum 1
       | otherwise = Sum 0
 
 
@@ -76,7 +77,10 @@ countMatching p = getSum . foldMap contribution
 data Tree a = Leaf | Node a [Tree a]
   deriving (Eq, Show)
 
-todoImpl ''Foldable ''Tree
+instance Foldable Tree where
+  foldMap _ Leaf = mempty
+  foldMap f (Node x t) = f x <> foldMap (foldMap f) t
+
 
 
 -- 1.6. Самостоятельно составьте цепочку преобразований через (&):
@@ -91,4 +95,7 @@ todoImpl ''Foldable ''Tree
 --   make run ARGS=wc < text/alice.txt
 
 wordCount :: [String] -> Map String Int
-wordCount = todo "1.6"
+wordCount xs = xs
+  & E.tokens
+  & foldl' (\c w -> Map.insertWith (+) w 1 c) Map.empty
+
